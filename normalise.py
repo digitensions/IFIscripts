@@ -80,7 +80,7 @@ def normalise_process(filename, output_folder):
         '-dn',
         '-report',
         '-slicecrc', '1',
-        '-slices', '16',
+        '-slices', '24',
     ]
     if ififuncs.check_for_fcp(filename) is True:
         print(' - A 720/576 file with no Pixel Aspect Ratio and scan type metadata has been detected.')
@@ -120,7 +120,7 @@ def verify_losslessness(output_folder, output, output_uuid, fmd5):
         '-f', 'framemd5', '-an',
         fmd5ffv1
         ]
-    print fmd5_command
+    print(fmd5_command)
     subprocess.call(fmd5_command, env=fmd5_env_dict)
     checksum_mismatches = ififuncs.diff_framemd5s(fmd5, fmd5ffv1)
     if len(checksum_mismatches) == 1:
