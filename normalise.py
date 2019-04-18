@@ -55,18 +55,18 @@ def normalise_process(filename, output_folder):
     Begins the actual normalisation process using FFmpeg
     '''
     output_uuid = ififuncs.create_uuid()
-    print(' - The following UUID has been generated: %s' % output_uuid)
+    print((' - The following UUID has been generated: %s' % output_uuid))
     output = "%s/%s.mkv" % (
         output_folder, output_uuid
         )
-    print(' - The normalised file will have this filename: %s' % output)
+    print((' - The normalised file will have this filename: %s' % output))
     fmd5 = "%s/%s_source.framemd5" % (
         output_folder, os.path.basename(filename)
         )
-    print(' - Framemd5s for each frame of your input file will be stored in: %s' % fmd5)
+    print((' - Framemd5s for each frame of your input file will be stored in: %s' % fmd5))
 
     ffv1_logfile = os.path.join(output_folder, '%s_normalise.log' % output_uuid)
-    print(' - The FFmpeg logfile for the transcode will be stored in: %s' % ffv1_logfile)
+    print((' - The FFmpeg logfile for the transcode will be stored in: %s' % ffv1_logfile))
     print(' - FFmpeg will begin normalisation now.')
     ffv1_env_dict = ififuncs.set_environment(ffv1_logfile)
     ffv1_command = [
@@ -80,7 +80,7 @@ def normalise_process(filename, output_folder):
         '-dn',
         '-report',
         '-slicecrc', '1',
-        '-slices', '24',
+        '-slices', '24',        # Slices set to 24 for MACE usage, IFIscripts set to 16
     ]
     if ififuncs.check_for_fcp(filename) is True:
         print(' - A 720/576 file with no Pixel Aspect Ratio and scan type metadata has been detected.')
@@ -110,7 +110,7 @@ def verify_losslessness(output_folder, output, output_uuid, fmd5):
     verdict = 'undeclared'
     fmd5_logfile = os.path.join(output_folder, '%s_framemd5.log' % output_uuid)
     fmd5ffv1 = "%s/%s.framemd5" % (output_folder, output_uuid)
-    print(' - Framemd5s for each frame of your output file will be stored in: %s' % fmd5ffv1)
+    print((' - Framemd5s for each frame of your output file will be stored in: %s' % fmd5ffv1))
     fmd5_env_dict = ififuncs.set_environment(fmd5_logfile)
     print(' - FFmpeg will attempt to verify the losslessness of the normalisation by using Framemd5s.')
     fmd5_command = [
@@ -128,13 +128,13 @@ def verify_losslessness(output_folder, output, output_uuid, fmd5):
             print('Image is lossless, but the Pixel Aspect Ratio is different than the source - this may have been intended.')
             verdict = 'Image is lossless, but the Pixel Aspect Ratio is different than the source - this may have been intended.'
         else:
-            print 'not lossless'
+            print('not lossless')
             verdict = 'not lossless'
     elif len(checksum_mismatches) > 1:
-        print 'not lossless'
+        print('not lossless')
         verdict = 'not lossless'
     elif len(checksum_mismatches) == 0:
-        print 'YOUR FILES ARE LOSSLESS YOU SHOULD BE SO HAPPY!!!'
+        print('YOUR FILES ARE LOSSLESS YOU SHOULD BE SO HAPPY!!!')
         verdict = 'lossless'
     return fmd5_logfile, fmd5ffv1, verdict
 
@@ -144,7 +144,12 @@ def main(args_):
     print(args)
     source = args.i
     output_folder = args.o
-    file_list = ififuncs.get_video_files(source)
+    log_name_source = os.path.join(args.o, '%s_normalise_log.log' % time.strftime("_%Y_%m_%dT%H_%M_%S"))
+    ififuncs.generate_log(log_name_source, 'normalise.py started.')
+    ififuncs.generate_log(
+        log_name_source,
+        'Command line arguments: %s' % args
+    )
     if args.sip:
         if args.user:
             user = args.user
@@ -152,31 +157,25 @@ def main(args_):
             user = ififuncs.get_user()
         if args.oe:
             if args.oe[:2] != 'oe':
-                print 'First two characters must be \'oe\' and last four characters must be four digits'
+                print('First two characters must be \'oe\' and last four characters must be four digits')
                 object_entry = ififuncs.get_object_entry()
-            elif len(args.oe[2:]) not in range(4, 6):
-                print 'First two characters must be \'oe\' and last four characters must be four digits'
+            elif len(args.oe[2:]) not in list(range(4, 6)):
+                print('First two characters must be \'oe\' and last four characters must be four digits')
                 object_entry = ififuncs.get_object_entry()
             elif not args.oe[2:].isdigit():
                object_entry = ififuncs.get_object_entry()
-               print 'First two characters must be \'oe\' and last four characters must be four digits'
+               print('First two characters must be \'oe\' and last four characters must be four digits')
             else:
                 object_entry = args.oe
         else:
             object_entry = ififuncs.get_object_entry()
-    oe_digits = int(object_entry.replace('oe', ''))
-    for filename in file_list:
-        log_name_source = os.path.join(args.o, '%s_normalise_log.log' % time.strftime("_%Y_%m_%dT%H_%M_%S"))
-        ififuncs.generate_log(log_name_source, 'normalise.py started.')
-        ififuncs.generate_log(
-            log_name_source,
-            'Command line arguments: %s' % args
-        )
         ififuncs.generate_log(
             log_name_source,
             'EVENT = agentName=%s' % user
         )
-        print('\n - Processing: %s' % filename)
+    file_list = ififuncs.get_video_files(source)
+    for filename in file_list:
+        print(('\n - Processing: %s' % filename))
         ififuncs.generate_log(
             log_name_source,
             'EVENT = Normalization, status=started, eventType=Normalization, agentName=ffmpeg, eventDetail=Source object to be normalised=%s' % filename)
@@ -184,15 +183,14 @@ def main(args_):
         ififuncs.generate_log(
             log_name_source,
             'EVENT = Normalization, status=finished, eventType=Normalization, agentName=ffmpeg, eventDetail=Source object normalised into=%s' % output)
-        inputxml, inputtracexml, dfxml = ififuncs.generate_mediainfo_xmls(filename, output_folder, output_uuid, log_name_source)
+        inputxml, inputtracexml = ififuncs.generate_mediainfo_xmls(filename, output_folder, output_uuid, log_name_source)
         fmd5_logfile, fmd5ffv1, verdict = verify_losslessness(output_folder, output, output_uuid, fmd5)
         ififuncs.generate_log(
             log_name_source,
             'EVENT = losslessness verification, status=finished, eventType=messageDigestCalculation, agentName=ffmpeg, eventDetail=MD5s of AV streams of output file generated for validation, eventOutcome=%s' % verdict)
         if args.sip:
-            object_entry_complete = 'oe' + str(oe_digits)
-            supplement_cmd = ['-supplement', inputxml, inputtracexml, dfxml]
-            sipcreator_cmd = ['-i', output, '-move', '-u', output_uuid, '-user', user, '-oe', object_entry_complete, '-o', args.o]
+            supplement_cmd = ['-supplement', inputxml, inputtracexml]
+            sipcreator_cmd = ['-i', output, '-move', '-u', output_uuid, '-user', user, '-oe', object_entry, '-o', args.o]
             if args.supplement:
                 supplement_cmd.extend(args.supplement)
             sipcreator_cmd.extend(supplement_cmd)
@@ -208,10 +206,6 @@ def main(args_):
             ififuncs.manifest_update(sipcreator_manifest, os.path.join(logs_dir, os.path.basename(ffv1_logfile.replace('\\\\', '\\').replace('\:', ':'))))
             ififuncs.manifest_update(sipcreator_manifest, os.path.join(logs_dir, os.path.basename(fmd5_logfile.replace('\\\\', '\\').replace('\:', ':'))))
             ififuncs.merge_logs(log_name_source, sipcreator_log, sipcreator_manifest)
-            os.remove(dfxml)
-            os.remove(inputxml)
-            os.remove(inputtracexml)
-            oe_digits += 1
 
 if __name__ == '__main__':
     main(sys.argv[1:])
