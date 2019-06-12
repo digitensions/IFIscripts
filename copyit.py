@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Copy pastes drectories while comparing checksum manifests of src and dst.
+Copy pastes directories while comparing checksum manifests of src and dst.
 '''
 
 import sys
@@ -72,7 +72,7 @@ def remove_bad_files(root_dir, log_name_source):
     '''
     Stolen and adapted from Ben Fino-Radin. Removes annoying files.
     '''
-    rm_these = ['.DS_Store', 'Thumbs.db', 'desktop.ini', 'Desktop.ini']
+    rm_these = ['.DS_Store', 'Thumbs.db', 'desktop.ini']
     for root, _, files in os.walk(root_dir):
         for name in files:
             path = os.path.join(root, name)
@@ -238,7 +238,7 @@ def copy_dir(
             )
             print(cmd)
             subprocess.call(cmd)
-    elif 'linux' in sys.platform:
+    elif "linux" in sys.platform:
         # https://github.com/amiaopensource/ltopers/blob/master/writelto#L51
         cmd = [
             'cp', '--preserve=mode,timestamps',
@@ -362,7 +362,7 @@ def setup(args_):
     '''
     parser = argparse.ArgumentParser(
         description='Copy directory with checksum comparison'
-                    'and manifest generation.Written by Kieran O\'Leary.')
+                    'and manifest generation. Written by Kieran O\'Leary.')
     parser.add_argument(
         'source', help='Input directory'
     )
@@ -384,11 +384,6 @@ def setup(args_):
         '-justcopy',
         action='store_true',
         help='Do not generate destination manifest and verify integrity :('
-    )
-    parser.add_argument(
-        '-y',
-        action='store_true',
-        help='Answers YES to the question: Not enough free space, would you like to continue?'
     )
     rootpos = ''
     dircheck = None
@@ -450,16 +445,33 @@ def setup(args_):
     free_space = ififuncs.get_free_space(args.destination)
     if total_input_size > free_space:
         print('You do not have enough free space!')
-        if args.y:
-            go_forth_blindly = 'Y'
-        else:
-            go_forth_blindly = ififuncs.ask_yes_no('Would you like to continue anyway? Press Y or N')
+        go_forth_blindly = ififuncs.ask_yes_no('Would you like to continue anyway? Press Y or N')
         if go_forth_blindly == 'Y':
             generate_log(log_name_source, 'You do not have enough free space!, but the user has decided to continue anyhow')
         else:
             generate_log(log_name_source, 'You do not have enough free space! - Exiting')
             sys.exit()
     return args, rootpos, manifest_sidecar, log_name_source, destination_final_path, manifest_root, manifest_destination, manifest, destination, dirname, desktop_manifest_dir
+
+
+def count_stuff(source):
+    '''
+    Counts total files to be processed.
+    '''
+    source_count = 0
+    file_list = []
+    for root, directories, filenames in os.walk(source):
+        filenames = [f for f in filenames if f[0] != '.']
+        directories[:] = [d for d in directories if d[0] != '.']
+        for files in filenames:
+            source_count += 1
+            relative_path = os.path.join(root, files).replace(os.path.dirname(source), '')[1:]
+            file_list.append(relative_path)
+    if os.path.isfile(source):
+        if len(file_list) == 0:
+            source_count = 1
+    return source_count, file_list
+
 
 def overwrite_check(
         destination, log_name_source,
@@ -570,11 +582,7 @@ def make_destination_manifest(
 
 
 def verify_copy(manifest, manifest_destination, log_name_source, overwrite_destination_manifest, files_in_manifest, destination_count, source_count):
-    with open(manifest, 'r') as source_manifest_object:
-        source_manifest_lines = source_manifest_object.read()
-    with open(manifest_destination, 'r') as destination_manifest_object:
-        destination_manifest_lines = destination_manifest_object.read()
-    if source_manifest_lines == destination_manifest_lines:
+    if filecmp.cmp(manifest, manifest_destination, shallow=False):
         print("Your files have reached their destination and the checksums match")
         generate_log(
             log_name_source,
@@ -646,7 +654,7 @@ def main(args_):
     remove_bad_files(
         source, log_name_source
     )
-    source_count, file_list = ififuncs.count_stuff(
+    source_count, file_list = count_stuff(
         source
     )
     manifest_existence(
@@ -723,7 +731,8 @@ def main(args_):
             sha512_manifest = manifest.replace('_manifest.md5', '_manifest-sha512.txt')
             if os.path.isfile(sha512_manifest):
                 shutil.copy2(sha512_manifest, os.path.dirname(destination_final_path))
-                print(('%s has been copied to %s' % (sha512_manifest, os.path.dirname(destination_final_path))))
+                print('%s has been copied to %s' % (sha512_manifest, os.path.dirname(destination_final_path)))
         return log_name_source
 if __name__ == '__main__':
     main(sys.argv[1:])
+
